@@ -5,5 +5,5 @@ use warnings;
 use FindBin;
 use lib "$FindBin::Bin/../lib";
 
-use pagebyacl;
-pagebyacl->to_app;
+use PageByACL;
+PageByACL->to_app;

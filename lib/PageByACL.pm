@@ -1,10 +1,15 @@
 package PageByACL;
 use Dancer2;
+
+our $BASEPATH;
+BEGIN {
+    $BASEPATH = path(dirname($0), '..');
+}
 use PageByACL::Data
     db => {
         driver => 'sqlite',
-        database => 'data/PageByACL-test.sqlite3.db',
-    }
+        database => path($BASEPATH, 'data/PageByACL.test.sqlite3.db'),
+    },
     tables => {
         acl => 'test_acl',
         user_roles => 'test_user_roles',
@@ -44,7 +49,7 @@ sub _dispatch {
 }
 
 sub _path_allowed {
-    my ($class, %params) = @_;
+    my (%params) = @_;
     my ($path) = PageByACL::Data->acl->search_files_by_user(
         $params{userid}, 
         $params{path},

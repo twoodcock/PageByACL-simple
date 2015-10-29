@@ -2,13 +2,14 @@ package PageByACL::Data;
 use Moo;
 use MooX::ClassAttribute;
 use PageByACL::Data::CDBI::Base;
+use PageByACL::Data::CDBI::ACL;
 
-# set up the source information - classes and the database table configuration.
+# set up the source information
+# - classes and the database table configuration.
+# - table => undef means the table must be configured by the app.
 our %sources = (
-    users => { class => 'PageByACL::Data::CDBI::Users', table => undef},
+    user_roles => { class => 'PageByACL::Data::CDBI::UserRoles', table => undef},
     acl   => { class => 'PageByACL::Data::CDBI::ACL',   table => undef},
-    # files is a helper class that uses users and acl.
-    files => { class => 'PageByACL::Data::CDBI::Files', },
 );
 
 class_has db=> ( is=>'rw', default=>sub{{}});
@@ -16,27 +17,16 @@ class_has db=> ( is=>'rw', default=>sub{{}});
 # The source methods return the class required to provide the app with the data
 # it wants. Classes are required lazily - ie only loaded when they are used. In
 # addition, database classes make sure their table is configured.
-class_has users => ( is=>'lazy', );
-    sub _build_users {
-        my ($class) = @_;
-        my $source_class = $sources{users}->{class};
-        if (!$sources{users}->{table}) {
-            Carp::croak "The table for the acl data source has not been configured.";
-        }
-        require $source_class;
-        $source_class->import(table=>$sources{users}{table});
-        return $source_class;
-    }
-
 class_has user_roles => ( is=>'lazy', );
-    sub _build_users {
+    sub _build_user_roles {
         my ($class) = @_;
         my $source_class = $sources{user_roles}->{class};
         if (!$sources{user_roles}->{table}) {
             Carp::croak "The table for the acl data source has not been configured.";
         }
-        require $source_class;
-        $source_class->import(table=>$sources{user_roles}{table});
+        eval "require $source_class";
+        die "$@\n" if $@;
+        $source_class->table($sources{user_roles}{table});
         return $source_class;
     }
 
@@ -47,19 +37,11 @@ class_has acl => ( is=>'lazy', );
         if (!$sources{acl}->{table}) {
             Carp::croak "The table for the acl data source has not been configured.";
         }
-        require $source_class;
-        $source_class->import(table=>$sources{acl}{table});
+        eval "require $source_class";
+        die "$@\n" if $@;
+        $source_class->table($sources{acl}{table});
         return $source_class;
     }
-
-class_has files => ( is=>'lazy', );
-    sub _build_files {
-        my ($class) = @_;
-        my $source_class = $sources{files}->{class};
-        require $source_class;
-        return $source_class;
-    }
-
 
 # Configuration - The user can choose to configure on the 'use' line or after.
 # Configuration has 2 hashes: db, the database configuration, tables to set the

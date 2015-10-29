@@ -1,5 +1,6 @@
 package PageByACL::Data::CDBI::Base;
 use base 'Class::DBI';
+use PageByACL::Data::DbConf;
 
 our $conf;
 sub import { shift->configure(@_); }
@@ -7,17 +8,22 @@ sub configure {
     my ($class, %params) = @_;
     if (scalar(@_) > 1) {
         $conf = PageByACL::Data::DbConf->new(\%params);
-        $class->set_db(
-            'Main',
-            $conf->dsn,
-            $conf->username,
-            $conf->password,
-            $conf->attr
-        );
+        eval {
+            $class->set_db(
+                'Main',
+                $conf->dsn,
+                $conf->username,
+                $conf->password,
+                $conf->attr
+            );
+        };
+        Carp::confess "$@\n" if $@;
     }
 }
 
 # update or create records
+# replace Class::DBI's find_or_create (which doesn't always work as
+# expected)
 sub set_record_as {
     my ($class, %params) = @_;
     $params{findkey} ||= 'rowid';

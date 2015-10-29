@@ -11,8 +11,8 @@ sub BUILDARGS {
     return $conf;
 }
 
-has driver => ( is=>'ro', required=>1 );
-has database => ( is=>'ro', required=>1 );
+has driver => ( is=>'ro'); # required, but we will abort lazily
+has database => ( is=>'ro');
 has host => ( is=>'ro' );
 has port => ( is=>'ro' );
 has username => ( is=>'ro' );
@@ -20,22 +20,21 @@ has password => ( is=>'ro' );
 has attr => ( is=>'ro' );
 
 sub dsn {
-    my ($class) = @_;
+    my ($self) = @_;
     my $dsn;
-    my $database = $class->db;
-    if (!$database->{driver}) {
-        return undef;
-    } elsif ($database->{driver} =~ m/mysql/i) {
-        my @drdsn = ("database=$$database{database}");
+    if (!$self->driver) {
+        die "no driver configured";
+    } elsif ($self->driver =~ m/mysql/i) {
+        my @drdsn = ("database=".$self->database);
         for my $key (qw(host port)) {
-            push @drdsn, "$key=$$database{$key}" if ($database->{$key});
+            push(@drdsn, "$key=" . $self->$key()) if ($self->$key());
         }
         $dsn = "DBI:mysql:".join(';', @drdsn);
-    } elsif ($database->{driver} =~ m/sqlite/i) {
-        if (!-e $database->{database}) {
-            die "The database file does not exist ($$database{database}).";
+    } elsif ($self->driver =~ m/sqlite/i) {
+        if (!-e $self->database) {
+            die "The database file does not exist (" . $self->database . ").";
         }
-        $dsn = "DBI:SQLite:dbname=$$database{database}";
+        $dsn = "DBI:SQLite:dbname=" . $self->database;
     }
     return $dsn;
 }

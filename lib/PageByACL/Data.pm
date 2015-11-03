@@ -49,8 +49,8 @@ class_has acl => ( is=>'lazy', );
 sub import { shift->configure(@_); }
 sub configure {
     my ($class, %params) = @_;
-    if ($params{db}) {
-        PageByACL::Data::CDBI::Base->configure(%{$params{db}||{}});
+    if ($params{source}) {
+        PageByACL::Data::CDBI::Base->configure(%{$params{source}||{}});
     }
     if ($params{tables}) {
         # set the source table for sources that require a table name.

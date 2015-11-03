@@ -1,26 +1,21 @@
 package PageByACL;
 use Dancer2;
+use PageByACL::Data;
 
-our $BASEPATH;
+# By default, Dancer2 automatically renders all files in the
+# config->{public_dir}. We do not want this.
+set static_handler => 0;
+
 BEGIN {
-    $BASEPATH = path(dirname($0), '..');
+    PageByACL::Data->configure(%{ config->{database} });
 }
-use PageByACL::Data
-    db => {
-        driver => 'sqlite',
-        database => path($BASEPATH, 'data/PageByACL.test.sqlite3.db'),
-    },
-    tables => {
-        acl => 'test_acl',
-        user_roles => 'test_user_roles',
-    };
 
 our $VERSION = '0.1';
 
 # for demonstrative purposes, use /u/:userid/route/to/file to access a given
 # file "logged in" as the given user.
 any "/u/:userid/*" => sub {
-    my $route = splat;
+    my ($route) = splat;
     # set the userid
     request->env->{REMOTE_USER} = params->{userid};
     # change the route to the given route.
@@ -31,30 +26,41 @@ any "/" => \&_dispatch;
 any "/*" => \&_dispatch;
 sub _dispatch {
     my $dispatch = request->dispatch_path;
-    my $remoteUser = request->env->{REMOTE_USER} || 'public';
+    my $remote_user = request->env->{REMOTE_USER};
+    if (!$remote_user) {
+        $remote_user = 'public';
+    }
+    header 'X-PageByACL-User' => $remote_user;
+    header 'X-PageByACL-Dispatch' => $dispatch;
     my $dir = config->{public_dir};
     if (!-e "$dir/$dispatch") {
         # If the file doesn't exist, we return a 404.
         status "not_found";
         return "$dispatch was not found";
     }
-    if (_path_allowed(userid=>$remoteUser, path=>$dispatch)) {
-        # If the file does exist and we are granted access, we simply deliver
-        # the file.
+    if (my $perm = _path_allowed(userid=>$remote_user, path=>$dispatch)) {
+        header 'X-PageByACL-Perm' => $perm;
         send_file($dispatch);
     }
     # We are not allowed to access this file.
     status 403;
+    # This is "a bit" abrupt. IRL you'd want something nicer.
     return "permission denied";
 }
 
 sub _path_allowed {
     my (%params) = @_;
-    my ($path) = PageByACL::Data->acl->search_files_by_user(
-        $params{userid}, 
-        $params{path},
-    );
-    return $path;
+    my $iter = PageByACL::Data::acl->find(path=>$params{path});
+    if ($iter->count) {
+        # If a path is access controled, it will have an entry in the acl
+        # table, if not, it is public, and therefore allowed.
+        my ($path) = PageByACL::Data->acl->has_perm(
+            userid => $params{userid},
+            path => $params{path},
+        );
+        return $path?'private':undef;
+    }
+    return 'public';
 }
 
 1; 
@@ -67,14 +73,21 @@ pagebyacl - app to render a static, but access controlled web site.
 
 =head1 DESCRIPTION
 
-This app is too stupid to be of real use. It exsists for demonstration of its
-various components.
+This (partial) app provides controlled access to a set of static files on a
+web server. The app decides whether the visitor has access based on entries
+in a database. If the database does not include access control for a given
+file, it is assumed to be public, and is sent.
 
-This app provides access controlled access to a set of web pages with public
-access to a more general set of pages. All pages are files on the file system.
-A database specifies which files are accessible.
+A PSGI app using this module would need a Plack middleware component to
+handle login.
 
-We assume the user has been logged in, if they wish to be, via a middleware
-component that offers us REMOTE_USER in the environment.
+Files are stored on the file system in the 'public' directory. They are only
+rendered if and when the web server decides they can be accessed by the
+current login session.
+
+The app uses a user-role system. A user may be given a set of roles that
+offer access to different sets of files. There are 2 tables required:
+- an acl (access control list) table
+- a user_roles table offering a list of roles by userid.
 
 =cut

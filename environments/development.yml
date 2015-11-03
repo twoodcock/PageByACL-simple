@@ -21,3 +21,11 @@ show_errors: 1
 
 # print the banner
 startup_info: 1
+
+database:
+    source:
+        driver: "SQLite"
+        database: "data/PageByACL.test.sqlite3.db"
+    tables:
+        acl:        "test_acl"
+        user_roles: "test_user_roles"
